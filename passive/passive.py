@@ -9,11 +9,16 @@ LOGO = logo()
 
 
 def execute(pcap_file_path,category):
+	jso = False
 	output_file = os.path.join(os.getcwd(),category+'_'+pcap_file_path.split(os.sep)[-1]+'.json')
 	if category=="SESSION":
 		sessions = passiveSession(pcap_file_path)
 		jso = dumps(sessions)
-		open(output_file,"w").write(jso)
+	if category=="DNS":
+		dnss = passiveDns(pcap_file_path)
+		jso = dumps(dnss)
+	if jso:open(output_file,"w").write(jso)
+
 
 
 	return 1

@@ -7,8 +7,41 @@ from socket import inet_ntoa
 from datetime import datetime
 from dpkt.dpkt import UnpackError
 from pprint import pprint
-
 import os
+
+def DnsRequestParser(udp):
+	res = {}
+	dns = False
+	try:dns = DNS(udp.data)
+	except (UnpackError):pass
+	if dns:
+		if 'qd' in dns.__hdr_fields__:
+			if dns.qd:
+				res['domain'] = dns.qd[0].name.__str__()
+				res['type'] = 'dns_request'
+	return res
+
+def DnsResponseParser(udp):
+	res = {}
+	dns = False
+	try:dns = DNS(udp.data)
+	except (UnpackError):pass
+	if dns:
+		if 'qd' in dns.__hdr_fields__:
+			if dns.qd:
+				res['domain'] = dns.qd[0].name.__str__()
+				res['type'] = 'dns_response'
+				res['answers'] = []
+				if 'an' in dns.__hdr_fields__:
+					for answer in dns.an:
+						if answer.type == 1:
+							res['answers'].append(
+									{
+										'answer' : answer.name.__str__(),
+										'ip' : inet_ntoa(answer.ip)
+									}
+								)
+	return res
 
 def flagScanner(tcp):
 	result = []
@@ -98,4 +131,51 @@ def passiveSession(pcap_path):
 										sessions[uni_key]['end_time'] = t
 	for session in sessions:
 		data['corrupt_sessions'].append(sessions[session])
+	return data
+
+
+
+def passiveDns(pcap_path):
+	data = {
+		'dns_requests' : [],
+		'dns_responses' : []
+	}
+	sessions = {}
+	complete = []
+	with open(pcap_path,'rb') as pf:
+		pcap_file_name = pcap_path
+		dpkt_file_object = False
+		try:dpkt_file_object = Reader(pf)
+		except Exception as err:
+			dpkt_file_object = False
+			print("[-] pcap corruption detected : {}".format(pcap_path))
+		if dpkt_file_object:
+			print("[+] pcap's health fine : {}".format(pcap_path))
+			for ts, payload in dpkt_file_object:
+				t1, p = ts, payload
+				t = datetime.fromtimestamp(t1).strftime("%Y-%m-%d %H:%M:%S")
+				eth = False
+				try:eth = Ethernet(payload)
+				except:eth = False
+				if eth:
+					if eth.type == 2048:
+						ip = eth.data
+						src_ip = inet_ntoa(ip.src)
+						dst_ip = inet_ntoa(ip.dst)
+						if ip.p == 17:
+							udp_src_port, udp_dst_port = udp.sport, udp.dport
+							if udp_src_port == 53:
+								dns_response_data = DnsResponseParser(udp)
+								dns_response_data['src_ip'], dns_response_data['dst_ip'] = src_ip, dst_ip
+								dns_response_data['src_port'], dns_response_data['dst_port'] = udp_src_port, udp_dst_port
+								dns_response_data['dns_time'] = t
+								dns_response_data['upload_id'] = upload_id
+								data['dns_responses'].append(dns_response_data)
+							elif udp_dst_port == 53:
+								dns_request_data = DnsRequestParser(udp)
+								dns_request_data['src_ip'], dns_request_data['dst_ip'] = src_ip, dst_ip
+								dns_request_data['src_port'], dns_request_data['dst_port'] = udp_src_port, udp_dst_port
+								dns_request_data['dns_time'] = t
+								dns_request_data['upload_id'] = upload_id
+								data['dns_requests'].append(dns_request_data)			
 	return data
