@@ -7,7 +7,10 @@ from socket import inet_ntoa
 from datetime import datetime
 from dpkt.dpkt import UnpackError
 from pprint import pprint
+from tqdm import tqdm
 import os
+
+
 
 def DnsRequestParser(udp):
 	res = {}
@@ -163,19 +166,24 @@ def passiveDns(pcap_path):
 						src_ip = inet_ntoa(ip.src)
 						dst_ip = inet_ntoa(ip.dst)
 						if ip.p == 17:
-							udp_src_port, udp_dst_port = udp.sport, udp.dport
-							if udp_src_port == 53:
-								dns_response_data = DnsResponseParser(udp)
-								dns_response_data['src_ip'], dns_response_data['dst_ip'] = src_ip, dst_ip
-								dns_response_data['src_port'], dns_response_data['dst_port'] = udp_src_port, udp_dst_port
-								dns_response_data['dns_time'] = t
-								dns_response_data['upload_id'] = upload_id
-								data['dns_responses'].append(dns_response_data)
-							elif udp_dst_port == 53:
-								dns_request_data = DnsRequestParser(udp)
-								dns_request_data['src_ip'], dns_request_data['dst_ip'] = src_ip, dst_ip
-								dns_request_data['src_port'], dns_request_data['dst_port'] = udp_src_port, udp_dst_port
-								dns_request_data['dns_time'] = t
-								dns_request_data['upload_id'] = upload_id
-								data['dns_requests'].append(dns_request_data)			
+							udp_pkt_header = False
+							udp = ip.data
+							try:udp_pkt_header = udp.__hdr__
+							except:udp_pkt_header = False
+							if udp_pkt_header:
+								udp_src_port, udp_dst_port = udp.sport, udp.dport
+								if udp_src_port == 53:
+									dns_response_data = DnsResponseParser(udp)
+									dns_response_data['src_ip'], dns_response_data['dst_ip'] = src_ip, dst_ip
+									dns_response_data['src_port'], dns_response_data['dst_port'] = udp_src_port, udp_dst_port
+									dns_response_data['dns_time'] = t
+									#dns_response_data['upload_id'] = upload_id
+									data['dns_responses'].append(dns_response_data)
+								elif udp_dst_port == 53:
+									dns_request_data = DnsRequestParser(udp)
+									dns_request_data['src_ip'], dns_request_data['dst_ip'] = src_ip, dst_ip
+									dns_request_data['src_port'], dns_request_data['dst_port'] = udp_src_port, udp_dst_port
+									dns_request_data['dns_time'] = t
+									#dns_request_data['upload_id'] = upload_id
+									data['dns_requests'].append(dns_request_data)			
 	return data

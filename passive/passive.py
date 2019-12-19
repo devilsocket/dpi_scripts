@@ -1,9 +1,10 @@
 from sys import argv
 from modules.extras import logo
-from modules.core import passiveSession
+from modules.core import passiveSession, passiveDns
 from pprint import pprint
 from json import dumps
 import os
+
 CATEGORIES = ["session","dns","meta","media","url","credentials"]
 LOGO = logo()
 
@@ -17,7 +18,7 @@ def execute(pcap_file_path,category):
 	if category=="DNS":
 		dnss = passiveDns(pcap_file_path)
 		jso = dumps(dnss)
-	if jso:open(output_file,"w").write(jso)
+	if jso:open(output_file,"w").write(jso);print("[+] output of file {} in categoey {} written to file {}".format(pcap_file_path, category, output_file))
 
 
 
